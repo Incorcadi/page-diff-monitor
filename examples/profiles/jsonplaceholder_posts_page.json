@@ -1,0 +1,57 @@
+{
+  "name": "jsonplaceholder_posts_page",
+  "url": "https://jsonplaceholder.typicode.com/posts",
+  "method": "GET",
+  "timeout": 10.0,
+  "headers": {
+    "User-Agent": "web_farm-demo/1.0"
+  },
+  "base_params": {},
+  "pagination": {
+    "kind": "page",
+    "page_param": "_page",
+    "start_from": 1,
+    "limit": 5,
+    "limit_param": "_limit",
+    "max_batches": 3
+  },
+  "extract": {
+    "mode": "json",
+    "id_path": "id"
+  },
+  "_meta": {
+    "tests": {
+      "fixtures_dir": "tests/fixtures/jsonplaceholder_posts",
+      "cases": [
+        {
+          "name": "page1",
+          "kind": "json",
+          "file": "page1.json",
+          "assert": {
+            "items_min": 5,
+            "unique_ids_min": 5,
+            "schema": "default",
+            "columns_nonempty": [
+              "id",
+              "title"
+            ],
+            "min_nonempty_ratio": 0.8
+          }
+        }
+      ]
+    },
+    "export": {
+      "default_schema": "default",
+      "schemas": {
+        "default": {
+          "columns_map": {
+            "id": "id",
+            "userId": "userId",
+            "title": "title",
+            "body": "body"
+          }
+        }
+      }
+    }
+  }
+}

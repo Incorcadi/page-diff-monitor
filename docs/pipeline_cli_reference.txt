@@ -1,0 +1,342 @@
+
+Справка: пайплайн “фермы” парсинга сайтов (Python) + команды CLI
+(без Docker-обвязки)
+
+Дата: 2026-02-22
+
+───────────────────────────────────────────────────────────────────────────────
+1) Что это за программа (коротко)
+───────────────────────────────────────────────────────────────────────────────
+Это модульный фреймворк для повторяемого сбора данных с сайтов/API:
+
+- “Профили” (JSON) описывают: URL, метод, заголовки, параметры, пагинацию,
+  извлечение items/ID, правила экспорта, тесты.
+- Ядро (runtime + http_engine + extractors + storage) одинаковое для всех сайтов.
+- На выходе: JSONL (стрим) или SQLite (raw + unique + состояние прогона).
+- Есть утилиты для онбординга профиля (infer), диагностики, офлайн‑тестов,
+  и массового прогона папки профилей (farm/pipeline).
+
+Важно по антиботу:
+- В базовой версии нет “автоматического обхода капчи”. Нормальная стратегия:
+  снижать триггеры (rate-limit, заголовки, retries), использовать легитимную
+  авторизацию/ключи, и тестировать офлайн через snapshots.
+
+───────────────────────────────────────────────────────────────────────────────
+2) Главные сущности (модели) и где живут
+───────────────────────────────────────────────────────────────────────────────
+2.1 SiteProfile (site_profile.py)
+- Описывает “контракт” для одного источника/сайта:
+  • request: method/url/headers/params/timeout
+  • pagination: kind + параметр(ы) + лимиты + стартовое состояние
+  • extract: как достать items и id из ответа (JSON или HTML)
+  • keying: как получить стабильный уникальный ID (для dedup)
+  • export: какие поля выводить в CSV/XLSX и как их формировать
+  • _meta: диагностические настройки, тесты, подсказки, auth‑ссылки на secrets
+
+2.2 Defaults (_defaults.json)
+- Общие значения “по умолчанию” для всех профилей: headers, лимиты, таймауты,
+  правила экспорта, тестовые директории, и т.п.
+- CLI флаг: --defaults path/to/_defaults.json
+
+2.3 Secrets (secret_store.py + secrets.json)
+- Локальный vault (НЕ коммитить).
+- Профиль хранит только ссылку (ref), а секреты/куки лежат отдельно.
+- ENV: PARSER_SECRETS_PATH=/path/secrets.json
+- CLI флаг: --secrets secrets.json
+
+Поддержанные типы (пример):
+  bearer / api_key_header / basic / cookies_file / headers / api_key_query
+
+2.4 Patch overlays (site_patches.py + profile_loader.py)
+- Механизм “минимальных оверлеев” поверх базового профиля:
+  merge / set (dot‑path) / delete (dot‑path).
+- Полезно для “один сайт → разные регионы/категории/шаблоны”.
+- В текущем CLI (tool_pipeline.py) флаги патчей могут быть не выведены,
+  но ядро для применения патчей в коде уже есть (profile_loader.load_profile_for_runtime).
+
+───────────────────────────────────────────────────────────────────────────────
+3) Этапы пайплайна выполнения (runtime)
+───────────────────────────────────────────────────────────────────────────────
+Ниже “что происходит” при cmd run / run-sqlite / farm:
+
+Этап 0. Загрузка профиля
+- Читаем profile.json
+- (опционально) сливаем _defaults.json (--defaults)
+- (опционально) достраиваем auth из secrets (--secrets / ENV)
+
+Этап 1. Сборка HTTP запроса (http_engine.py + http_utils.py)
+- Requests Session
+- Таймауты, базовые заголовки, base_params
+- (опционально) кэш ответов --cache-dir
+- (опционально) режим --replay (только из кэша, без сети)
+
+Этап 2. Пагинация (runtime.py)
+Поддерживаемые kind (встроено в runtime.paginate_items):
+- page     : параметр page, инкремент по страницам
+- offset   : offset += limit
+- cursor   : cursor берётся из ответа (нужен cursor_path / extractor)
+- next_url : следующий URL берётся из ответа
+
+Остановка:
+- достигли --max-items (если задано)
+- пагинация больше не даёт новых страниц/курсоров
+- или ответ перестал быть валидным (ошибка/нет items)
+
+Этап 3. Чтение ответа (resp_read.py)
+- safe_read_json() — безопасное чтение/валидация JSON
+- read_text_safely() — безопасное чтение HTML/text
+
+Этап 4. Извлечение items (extractors.py + json_path.py + html_extract.py)
+JSON режим:
+- items_path: dot‑path (например: "data.items")
+- items_keys: fallback ключи ("items", "results", "data"...)
+- max_depth + container_keys: поиск списка глубже в JSON, если items_path не задан
+
+HTML режим:
+- extract_items_from_html(): простые правила извлечения (зависит от профиля)
+
+Этап 5. Извлечение ID (keying.py)
+- extract_item_id(item, id_path/id_keys/…)
+- Важно: стабильный ID = ключ к dedup, resume и инференсу пагинации.
+
+Этап 6. Дедуп и запись результата
+Вариант A: JSONL (storage_jsonl.py)
+- append‑only лог items (по мере получения)
+
+Вариант B: SQLite (storage_sqlite.py)
+- items_raw    : все события/строки
+- items_unique : последняя версия по уникальному ID
+- run_state    : состояние пагинации (для --resume) + счетчики run_id/seq
+
+Этап 7. Экспорт (export_csv.py)
+- JSONL/SQLite → CSV
+- можно указывать поля вручную или брать схему из профиля (_meta.export.schemas)
+- поддерживаются dot‑paths (достать вложенные поля из JSON)
+
+Этап 8. Контроль качества (offline_tests.py + snapshots)
+- snapshot: сохранить ответы как fixtures
+- offline-test: гонять профиль против fixtures без сети
+- triage/diagnose: быстрые отчёты и подсказки
+
+───────────────────────────────────────────────────────────────────────────────
+4) Возможности программы (сводно)
+───────────────────────────────────────────────────────────────────────────────
+Сбор:
+- JSON API и HTML страницы (в зависимости от extract.mode профиля)
+- Пагинация: page/offset/cursor/next_url
+- Кэширование ответов, replay (воспроизводимость)
+
+Качество:
+- Онбординг пагинации (infer.py) + limit_param probe
+- Линтер профиля (profile_lint.py)
+- Snapshot/Offline tests (fixtures), чтобы не ломать прод
+
+Хранилище/вывод:
+- JSONL (простое)
+- SQLite (raw + unique + resume)
+- CSV экспорт по схеме
+
+Масштабирование:
+- farm: прогон директории профилей (JSONL per profile)
+- pipeline: “draft→fixed→active→errors” (2‑pass: минимум → авто‑починка)
+
+───────────────────────────────────────────────────────────────────────────────
+5) Команды CLI (tool_pipeline.py) — текущий набор
+───────────────────────────────────────────────────────────────────────────────
+Глобальные флаги (для всех команд):
+- --pretty            : pretty JSON output
+- --defaults PATH     : путь к _defaults.json
+- --secrets PATH      : путь к secrets.json (иначе ENV PARSER_SECRETS_PATH)
+- --diag-http         : короткая диагностика HTTP при ошибках
+- --cache-dir PATH    : кэш HTTP ответов (опционально)
+- --replay            : работать ТОЛЬКО из кэша (без сети)
+
+Дальше команды (subcommands):
+
+5.1 lint
+Назначение: статическая проверка профиля (без сети)
+Пример:
+  python -m scripts.scripts_pagination.tool_pipeline lint --profile profiles/site.json
+
+Флаги:
+- --profile PATH
+- --json
+
+5.2 offline-test
+Назначение: офлайн тесты профиля по fixtures (без сети)
+Пример:
+  python -m scripts.scripts_pagination.tool_pipeline offline-test --profile profiles/site.json
+
+Флаги:
+- --profile PATH
+- --fixtures-dir PATH   (override _meta.tests.fixtures_dir)
+- --case NAME           (только один кейс)
+- --schema NAME         (override export schema)
+- --max-items N         (сколько items валидировать)
+- --json
+
+5.3 snapshot
+Назначение: сохранить HTTP ответы как offline fixtures (кейсы)
+Пример:
+  python -m scripts.scripts_pagination.tool_pipeline snapshot --profile profiles/site.json --name case1
+
+Флаги:
+- --profile PATH
+- --name NAME
+- --fixtures-dir PATH
+- --kind auto|json|html
+- --batches N          (сколько “страниц/батчей” снапшотить)
+- --state JSON|PATH    (стартовое состояние пагинации)
+- --from-cache         (не сеть, а --cache-dir)
+- --write-case         (записать case в profile._meta.tests.cases)
+- --schema NAME
+- --items-min N
+- --unique-ids-min N
+- --col-nonempty COL   (repeatable)
+- --min-nonempty-ratio R
+
+5.4 triage
+Назначение: быстрый “осмотр” профиля или каталога профилей (смоук)
+Пример:
+  python -m scripts.scripts_pagination.tool_pipeline triage --profiles-dir profiles/active --recursive
+
+Флаги:
+- --profile PATH
+- --profiles-dir PATH
+- --recursive
+- --smoke N
+- --stagnation-window N
+- --only "label1,label2"
+- --json
+- --summary
+
+5.5 diagnose
+Назначение: расширенная диагностика + подсказки + (опционально) применить авто‑патчи
+Пример:
+  python -m scripts.scripts_pagination.tool_pipeline diagnose --profile profiles/site.json --infer --limit-probe
+
+Флаги:
+- --profile PATH
+- --infer             (попробовать определить пагинацию)
+- --limit-probe       (попробовать найти limit_param)
+- --apply             (применить изменения)
+- --apply-out PATH    (куда сохранить примененный профиль)
+
+5.6 onboard
+Назначение: онбординг профиля (infer pagination + limit_param) и сохранение
+Пример:
+  python -m scripts.scripts_pagination.tool_pipeline onboard --in profiles/draft.json --out profiles/active.json
+
+Флаги:
+- --in PATH
+- --out PATH
+- --print-report
+
+5.7 run
+Назначение: прогнать один профиль и записать JSONL
+Пример:
+  python -m scripts.scripts_pagination.tool_pipeline run --profile profiles/site.json --out out/items.jsonl
+
+Флаги:
+- --profile PATH
+- --out PATH
+- --max-items N (0 = no limit)
+
+5.8 run-sqlite
+Назначение: прогнать один профиль и писать SQLite БД (raw+unique+state)
+Пример:
+  python -m scripts.scripts_pagination.tool_pipeline run-sqlite --profile profiles/site.json --db out/site.db
+
+Флаги:
+- --profile PATH
+- --db PATH
+- --raw-table NAME    (default items_raw)
+- --unique-table NAME (default items_unique)
+- --run-id ID         (если не задан → UUID)
+- --max-items N
+- --resume            (продолжить из run_state)
+
+5.9 export
+Назначение: экспорт JSONL/SQLite → CSV
+Пример:
+  python -m scripts.scripts_pagination.tool_pipeline export --in out/site.db --out out/site.csv --kind sqlite --table items_unique
+
+Флаги:
+- --in PATH
+- --out PATH
+- --kind auto|jsonl|sqlite
+- --table NAME
+- --fields "a,b,c,meta.price" (dot‑paths)
+- --probe N (для auto‑полей)
+- --limit N
+- --profile PATH (чтобы взять schema/ctx_defaults)
+- --schema NAME  (из _meta.export.schemas)
+- --ctx key=value (repeatable)
+- --run-id ID
+- --batch-id ID
+
+5.10 farm
+Назначение: прогнать все профили в директории (JSONL per profile)
+Пример:
+  python -m scripts.scripts_pagination.tool_pipeline farm --profiles-dir profiles/active --out-dir out/farm --recursive
+
+Флаги:
+- --profiles-dir PATH
+- --out-dir PATH
+- --recursive
+- --max-items N
+
+5.11 pipeline
+Назначение: “конвейер профилей” draft→fixed→active→errors
+Идея:
+- PASS1: минимальный smoke (или отключить --smoke0)
+- PASS2: авто‑фиксы (infer pagination, limit probe), раскладывание по папкам
+
+Пример:
+  python -m scripts.scripts_pagination.tool_pipeline pipeline \
+    --draft profiles/draft --fixed profiles/fixed --active profiles/active --errors profiles/errors --recursive
+
+Флаги:
+- --draft DIR
+- --fixed DIR
+- --active DIR
+- --errors DIR
+- --move                (move вместо copy)
+- --recursive
+- --smoke N
+- --stagnation-window N
+- --smoke0              (PASS1 без smoke)
+- --no-infer            (PASS2 без infer pagination)
+- --no-limit-probe      (PASS2 без limit probe)
+- --reports-dir DIR     (писать JSON отчёты по профилям)
+
+───────────────────────────────────────────────────────────────────────────────
+6) Практические “рецепты”
+───────────────────────────────────────────────────────────────────────────────
+A) Быстро поднять новый профиль:
+1) draft profile
+2) lint
+3) diagnose --infer --limit-probe
+4) snapshot (зафиксировать ответы)
+5) offline-test (чтобы не ломалось)
+
+B) Регулярный сбор без дублей:
+- run-sqlite --resume
+- export по нужной схеме
+
+C) Разработка “по-настоящему”:
+- держать fixtures и offline-test, чтобы изменения не ломали старые сайты
+
+───────────────────────────────────────────────────────────────────────────────
+7) Опциональные расширения (если применены отдельные патчи/бандлы)
+───────────────────────────────────────────────────────────────────────────────
+(Это не Docker. Это отдельные улучшения, которые можно подключать по необходимости.)
+
+- Browser stage (Playwright) для JS‑рендера/prime_cookies (не капча‑байпас)
+- SQLite очередь блокировок blocked_events + команды blocked-* + farm-sqlite
+- farm-resume-open (массовый resume по открытым blocked events)
+- Strict patch conflict checker (strict_any/strict_by_domain) + ignore lists
+- Документный парсер (PDF/OCR + таблицы + patches) — отдельный подпроект (tool_docs)
+
+Если хочешь, я могу обновить этот файл под “точную сборку” твоего репозитория:
+просто скажи, какую версию tool_pipeline ты реально используешь (базовую или расширенную).

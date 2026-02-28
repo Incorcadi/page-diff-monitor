@@ -1,0 +1,14 @@
+{
+  "name": "enable_strict_any",
+  "enabled": true,
+  "merge": {
+    "_meta": {
+      "patch_policy": {
+        "strict_any": true,
+        "max_conflicts": 20
+      }
+    }
+  },
+  "set": {},
+  "delete": []
+}

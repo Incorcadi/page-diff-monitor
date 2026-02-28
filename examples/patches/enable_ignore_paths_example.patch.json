@@ -1,0 +1,19 @@
+{
+  "name": "enable_ignore_lists_example",
+  "enabled": true,
+  "merge": {
+    "_meta": {
+      "patch_policy": {
+        "ignore_paths": [
+          "logging.*"
+        ],
+        "ignore_by_domain": [
+          ".example.com:browser_fallback.playwright.timeout_ms"
+        ],
+        "max_ignored_report": 200
+      }
+    }
+  },
+  "set": {},
+  "delete": []
+}

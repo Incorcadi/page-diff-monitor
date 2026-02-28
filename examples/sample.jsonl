@@ -1,0 +1,2 @@
+{"id": 1, "meta": {"id": "a-1", "tags": ["x", "y"]}, "price": {"value": "10 000", "currency": "UAH"}, "arr": [{"v": 7}]}
+{"id": 2, "meta": {"id": "a-2", "tags": []}, "price": {"value": "6500", "currency": "UAH"}, "arr": [{"v": 8}]}

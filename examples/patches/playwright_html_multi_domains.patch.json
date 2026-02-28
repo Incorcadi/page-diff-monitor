@@ -1,0 +1,80 @@
+{
+  "name": "playwright_html_multi_domains",
+  "enabled": true,
+  "merge": {
+    "_meta": {
+      "http": {
+        "headers": {
+          "by_domain": {
+            ".example.com": {
+              "browser_fallback": {
+                "enabled": true,
+                "strategy": "playwright_html",
+                "on_status": [
+                  403,
+                  406
+                ],
+                "on_hint": [
+                  "js_challenge",
+                  "cloudflare",
+                  "access_denied"
+                ],
+                "max_tries": 0,
+                "playwright": {
+                  "enabled": true,
+                  "mode": "render_html",
+                  "headless": true,
+                  "browser": "chromium",
+                  "timeout_ms": 60000,
+                  "wait_until": "networkidle",
+                  "wait_selector": "",
+                  "actions": [
+                    {
+                      "type": "scroll",
+                      "times": 4,
+                      "delay_ms": 500
+                    }
+                  ]
+                }
+              }
+            },
+            "app.example.com": {
+              "browser_fallback": {
+                "enabled": true,
+                "strategy": "playwright_html",
+                "on_status": [
+                  403,
+                  406
+                ],
+                "on_hint": [
+                  "js_challenge",
+                  "cloudflare",
+                  "access_denied"
+                ],
+                "max_tries": 0,
+                "playwright": {
+                  "enabled": true,
+                  "mode": "render_html",
+                  "headless": true,
+                  "browser": "chromium",
+                  "timeout_ms": 60000,
+                  "wait_until": "networkidle",
+                  "wait_selector": "",
+                  "actions": [
+                    {
+                      "type": "scroll",
+                      "times": 4,
+                      "delay_ms": 500
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "set": {},
+  "delete": []
+}

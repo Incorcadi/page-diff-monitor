@@ -1,0 +1,38 @@
+{
+  "_meta": {
+    "http": {
+      "headers": {
+        "browser_fallback": {
+          "enabled": true,
+          "strategy": "mixed",
+          "on_status": [
+            403,
+            406
+          ],
+          "on_hint": [
+            "js_challenge",
+            "access_denied",
+            "cloudflare"
+          ],
+          "max_tries": 1,
+          "playwright": {
+            "enabled": true,
+            "mode": "prime_cookies",
+            "headless": true,
+            "browser": "chromium",
+            "timeout_ms": 45000,
+            "wait_until": "networkidle",
+            "wait_selector": "",
+            "actions": [
+              {
+                "type": "scroll",
+                "times": 2,
+                "delay_ms": 500
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

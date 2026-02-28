@@ -1,0 +1,203 @@
+{
+  "timeout": 20.0,
+  "headers": {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ParserFarm/1.0"
+  },
+  "_meta": {
+    "http": {
+      "headers": {
+        "mode": "auto",
+        "html": {
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"
+        },
+        "json": {
+          "Accept": "application/json, text/plain, */*"
+        },
+        "browser_fallback": {
+          "enabled": true,
+          "on_status": [
+            403
+          ],
+          "max_tries": 1
+        },
+        "by_domain": {
+          "api.some-site.com": {
+            "mode": "json"
+          },
+          ".hard-site.com": {
+            "browser_fallback": {
+              "enabled": true,
+              "on_status": [
+                403,
+                406
+              ],
+              "max_tries": 1
+            }
+          }
+        }
+      },
+      "rate_limit": {
+        "kind": "token_bucket",
+        "rate_per_sec": 1.0,
+        "capacity": 2,
+        "start_full": true,
+        "min_delay_ms": 0,
+        "jitter_ms": 0,
+        "scope": "domain"
+      },
+      "retries": {
+        "max_attempts": 4,
+        "base_delay": 0.5,
+        "cap_delay": 8.0,
+        "jitter": "full",
+        "retry_statuses": [
+          429,
+          500,
+          502,
+          503,
+          504
+        ],
+        "respect_retry_after": true
+      }
+    },
+    "export": {
+      "default_schema": "default",
+      "schemas": {
+        "default": {
+          "columns_map": {
+            "id": {
+              "paths": [
+                "id",
+                "meta.id",
+                "uuid",
+                "guid",
+                "slug",
+                "item_id",
+                "product_id"
+              ],
+              "type": "str",
+              "default": "",
+              "pos": 10
+            },
+            "title": {
+              "paths": [
+                "title",
+                "name",
+                "headline"
+              ],
+              "type": "str",
+              "default": "",
+              "pos": 20
+            },
+            "url": {
+              "paths": [
+                "url",
+                "link",
+                "permalink",
+                "href"
+              ],
+              "type": "str",
+              "default": "",
+              "pos": 30
+            },
+            "raw_json": {
+              "path": "",
+              "type": "json",
+              "pos": 9990
+            }
+          }
+        },
+        "analytics": {
+          "columns_map": {
+            "source_profile": {
+              "const_ref": "source_profile",
+              "type": "str",
+              "default": "",
+              "pos": 10
+            },
+            "batch_id": {
+              "const_ref": "batch_id",
+              "type": "str",
+              "default": "",
+              "pos": 20
+            },
+            "run_id": {
+              "const_ref": "run_id",
+              "type": "str",
+              "default": "",
+              "pos": 30
+            },
+            "fetched_at": {
+              "const_ref": "fetched_at",
+              "type": "str",
+              "default": "",
+              "pos": 40
+            },
+            "item_id": {
+              "compute": "item_id",
+              "type": "str",
+              "default": "",
+              "pos": 50
+            },
+            "item_key": {
+              "compute": "item_key",
+              "type": "str",
+              "default": "",
+              "pos": 60
+            },
+            "url": {
+              "paths": [
+                "url",
+                "link",
+                "permalink",
+                "href",
+                "meta.url"
+              ],
+              "type": "str",
+              "default": "",
+              "pos": 70
+            },
+            "title": {
+              "paths": [
+                "title",
+                "name",
+                "headline"
+              ],
+              "type": "str",
+              "default": "",
+              "pos": 80
+            },
+            "country": {
+              "const_ref": "country",
+              "type": "str",
+              "default": "",
+              "pos": 90
+            },
+            "currency": {
+              "const_ref": "currency",
+              "type": "str",
+              "default": "",
+              "pos": 100
+            },
+            "category": {
+              "const_ref": "category",
+              "type": "str",
+              "default": "",
+              "pos": 110
+            },
+            "raw_json": {
+              "path": "",
+              "type": "json",
+              "pos": 120
+            }
+          }
+        }
+      }
+    },
+    "ctx_defaults": {
+      "country": "",
+      "currency": "",
+      "category": ""
+    }
+  }
+}

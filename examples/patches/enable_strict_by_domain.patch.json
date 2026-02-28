@@ -1,0 +1,14 @@
+{
+  "name": "enable_strict_by_domain",
+  "enabled": true,
+  "merge": {
+    "_meta": {
+      "patch_policy": {
+        "strict_by_domain": true,
+        "max_conflicts": 20
+      }
+    }
+  },
+  "set": {},
+  "delete": []
+}

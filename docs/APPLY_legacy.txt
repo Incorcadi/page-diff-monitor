@@ -1,0 +1,24 @@
+1) Replace in your repo:
+   - tool_pipeline.py  <- tool_pipeline_patched.py
+   - site_profile.py   <- site_profile_patched.py
+   - (optional) pipeline_microscope_exact.py <- pipeline_microscope_exact_patched.py
+
+2) New CLI commands:
+   - patch-list : list patches in a directory
+   - patch-show : show patch JSON and/or effective profile after applying patches
+
+3) Examples:
+   List patches:
+     python tool_pipeline.py --patches-dir profiles/patches patch-list
+
+   Show patch JSON:
+     python tool_pipeline.py --patches-dir profiles/patches patch-show example_site
+
+   Show effective profile after applying stack:
+     python tool_pipeline.py --patches-dir profiles/patches \
+       --site-patch example_site \
+       patch-show --profile profiles/site.json --only effective
+
+   Show both (patch + effective):
+     python tool_pipeline.py --patches-dir profiles/patches \
+       patch-show example_site --profile profiles/site.json

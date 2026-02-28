@@ -1,0 +1,52 @@
+{
+  "name": "pokeapi_pokemon_next",
+  "url": "https://pokeapi.co/api/v2/pokemon?limit=5&offset=0",
+  "method": "GET",
+  "timeout": 10.0,
+  "headers": {
+    "User-Agent": "web_farm-demo/1.0"
+  },
+  "base_params": {},
+  "pagination": {
+    "kind": "next_url",
+    "max_batches": 3
+  },
+  "extract": {
+    "mode": "json",
+    "items_path": "results",
+    "id_path": "name"
+  },
+  "_meta": {
+    "tests": {
+      "fixtures_dir": "tests/fixtures/pokeapi_pokemon",
+      "cases": [
+        {
+          "name": "page0",
+          "kind": "json",
+          "file": "page0.json",
+          "assert": {
+            "items_min": 5,
+            "unique_ids_min": 5,
+            "schema": "default",
+            "columns_nonempty": [
+              "name",
+              "url"
+            ],
+            "min_nonempty_ratio": 0.8
+          }
+        }
+      ]
+    },
+    "export": {
+      "default_schema": "default",
+      "schemas": {
+        "default": {
+          "columns_map": {
+            "name": "name",
+            "url": "url"
+          }
+        }
+      }
+    }
+  }
+}

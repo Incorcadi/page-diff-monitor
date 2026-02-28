@@ -1,0 +1,23 @@
+{
+  "name": "example_site",
+  "enabled": true,
+  "merge": {
+    "headers": {
+      "Accept": "application/json, text/plain, */*"
+    },
+    "extract": {
+      "items_path": "data.items",
+      "id_path": "id"
+    }
+  },
+  "set": {
+    "pagination.kind": "offset",
+    "pagination.limit_param": "limit",
+    "pagination.offset_param": "offset",
+    "pagination.step": 50,
+    "base_params.lang": "en"
+  },
+  "delete": [
+    "headers.Authorization"
+  ]
+}

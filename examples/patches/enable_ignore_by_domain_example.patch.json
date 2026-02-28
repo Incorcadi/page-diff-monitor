@@ -1,0 +1,16 @@
+{
+  "name": "enable_ignore_by_domain_example",
+  "enabled": true,
+  "merge": {
+    "_meta": {
+      "patch_policy": {
+        "ignore_by_domain": [
+          ".example.com:browser_fallback.playwright.timeout_ms",
+          "api.example.com:*"
+        ]
+      }
+    }
+  },
+  "set": {},
+  "delete": []
+}
