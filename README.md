@@ -1,6 +1,6 @@
 # web_farm — profile‑driven web/API scraping pipeline
 
-[Українська](README.uk.md) · [Русский](README.ru.md)
+
 
 `web_farm` is a **profile-driven** scraping pipeline intended for real freelance work: pagination, extraction, deduplication, offline replay/tests, and convenient exports.
 
